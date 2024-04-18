@@ -7,12 +7,15 @@ Description of Problem (just a 1-2 line summary!): These problems are to
 """
 import pandas as pd
 from sklearn.calibration import LabelEncoder
+from sklearn.cluster import KMeans
 from sklearn.discriminant_analysis import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 import numpy as np
 from sklearn.svm import SVC
+from scipy.spatial.distance import cdist
+import matplotlib.pyplot as plt
 
 # Define column names
 column_names = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'L']
@@ -42,6 +45,9 @@ scaler = StandardScaler()
 scaler.fit(X_train)
 X_train = scaler.transform(X_train)
 X_test = scaler.transform(X_test)
+
+# Dictionary for metrics
+model_metrics = {}
 
 #---------------------linear kernel SVM-------------------
 
@@ -87,6 +93,8 @@ tnr = tn / (tn + fp)
 print("True Positive Rate:", tpr)
 print("True Negative Rate:", tnr)
 
+model_metrics['linear SVM'] = {'TP': tp, 'FP': fp, 'TN': tn, 'FN': fn, 'accuracy': accuracy, 'TPR': tpr, 'TNR': tnr}
+
 #---------------------Gaussian kernel SVM-------------------
 
 print("\n-------------Gaussian kernel SVM--------------")
@@ -131,6 +139,8 @@ tnr = tn / (tn + fp)
 print("True Positive Rate:", tpr)
 print("True Negative Rate:", tnr)
 
+model_metrics['Gaussian SVM'] = {'TP': tp, 'FP': fp, 'TN': tn, 'FN': fn, 'accuracy': accuracy, 'TPR': tpr, 'TNR': tnr}
+
 #--------------------- polynomial kernel SVM of degree 3-------------------
 
 print("\n------------- polynomial kernel SVM of degree 3--------------")
@@ -174,6 +184,8 @@ tnr = tn / (tn + fp)
 
 print("True Positive Rate:", tpr)
 print("True Negative Rate:", tnr)
+
+model_metrics['polynomial SVM'] = {'TP': tp, 'FP': fp, 'TN': tn, 'FN': fn, 'accuracy': accuracy, 'TPR': tpr, 'TNR': tnr}
 
 #---------------------Logistic Regression-------------------
 
@@ -231,4 +243,49 @@ tnr = tn / (tn + fp)
 
 print("True Positive Rate:", tpr)
 print("True Negative Rate:", tnr)
+
+model_metrics['Logistic Regression'] = {'TP': tp, 'FP': fp, 'TN': tn, 'FN': fn, 'accuracy': accuracy, 'TPR': tpr, 'TNR': tnr}
+
+# Create table of metrics
+metrics_df = pd.DataFrame(model_metrics).T
+
+print("\n", metrics_df)
+
+#---------------------k-means Clustering-------------------
+
+print("\n-------------k-means Clustering--------------")
+
+# Test Train split for whole dataset
+X = df[['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']]
+Y = df[['L']]
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.5, random_state=1)
+Y_train = np.ravel(Y_train)
+Y_test = np.ravel(Y_test)
+
+# Calculate distortions for k = 1 to 8
+distortions = []
+inertias = []
+K = range(1, 9)
+for k in K:
+    kmeans = KMeans(n_clusters=k, init='random', random_state=1)
+    kmeans.fit(X)
+    distortions.append(sum(np.min(cdist(X, kmeans.cluster_centers_, 'euclidean'), axis=1)) / X.shape[0])
+    inertias.append(kmeans.inertia_)
+
+# Plot the distortions
+plt.plot(K, distortions, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Distortion')
+plt.title('Distortion vs k')
+plt.show()
+
+# Best k using the "knee" method
+print("Best k using the knee method: 3")
+
+plt.plot(K, inertias, 'bx-')
+plt.xlabel('k')
+plt.ylabel('Inertia')
+plt.title('Inertia vs k')
+plt.show()
+
 
