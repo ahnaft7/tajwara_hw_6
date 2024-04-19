@@ -5,6 +5,8 @@ Date: 4/20/24
 Homework Problems # 1-3
 Description of Problem (just a 1-2 line summary!): These problems are to 
 """
+from collections import Counter
+import random
 import pandas as pd
 from sklearn.calibration import LabelEncoder
 from sklearn.cluster import KMeans
@@ -268,8 +270,8 @@ inertias = []
 K = range(1, 9)
 for k in K:
     kmeans = KMeans(n_clusters=k, init='random', random_state=1)
-    kmeans.fit(X)
-    distortions.append(sum(np.min(cdist(X, kmeans.cluster_centers_, 'euclidean'), axis=1)) / X.shape[0])
+    y_means = kmeans.fit_predict(X_train)
+    distortions.append(sum(np.min(cdist(X_train, kmeans.cluster_centers_, 'euclidean'), axis=1)) / X_train.shape[0])
     inertias.append(kmeans.inertia_)
 
 # Plot the distortions
@@ -277,15 +279,115 @@ plt.plot(K, distortions, 'bx-')
 plt.xlabel('k')
 plt.ylabel('Distortion')
 plt.title('Distortion vs k')
-plt.show()
+# plt.show()
+plt.savefig('distortion_plot.png')
 
 # Best k using the "knee" method
-print("Best k using the knee method: 3")
+best_k = 3
+print(f"\nBest k using the knee method: {best_k}")
 
-plt.plot(K, inertias, 'bx-')
-plt.xlabel('k')
-plt.ylabel('Inertia')
-plt.title('Inertia vs k')
-plt.show()
+print("\n-------------Random fi and fj wth k = 3--------------")
 
+# features = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']
+# # Pick a random item from the list
+# fi = random.choice(features)
+# # Remove the picked item from the list
+# features.remove(fi)
+# fj = random.choice(features)
+fi = 'f5'
+fj = 'f4'
+print("fi: ", fi)
+print("fj: ", fj)
+feature_list = [fi, fj]
 
+# Test Train split for whole dataset
+X = df[feature_list]
+Y = df[['L']]
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.5, random_state=1)
+Y_train = np.ravel(Y_train)
+Y_test = np.ravel(Y_test)
+print("training data: ", Y_train)
+
+kmeans = KMeans(n_clusters=best_k, init='random', random_state=1)
+y_means = kmeans.fit_predict(X_train)
+
+centroids = kmeans.cluster_centers_
+labels = kmeans.labels_
+
+print("\nlabels: ", labels)
+
+plt.clf()
+
+for label in np.unique(labels):
+    plt.scatter(X_train.loc[labels == label, fi], X_train.loc[labels == label, fj], label=f'Cluster {label + 1}')
+
+# Plot centroids with different colors
+centroid_colors = ['blue', 'red', 'green', 'orange', 'purple', 'cyan', 'magenta', 'yellow', 'brown', 'pink']
+for i, centroid in enumerate(centroids):
+    plt.scatter(centroid[X_train.columns.get_loc(fi)], centroid[X_train.columns.get_loc(fj)], marker='x', s=200, c=centroid_colors[i], label=f'Centroid {i+1}')
+
+plt.xlabel(fi)
+plt.ylabel(fj)
+plt.title(f'Data Points and Centroids ({fi} vs {fj})')
+plt.legend()
+plt.grid(True)
+# plt.show()
+plt.savefig('fifj_class_centroids_plot.png')
+
+# Initialize a dictionary to store the majority class for each cluster
+cluster_to_class = {}
+
+# Iterate over each cluster
+for cluster_label in np.unique(y_means):
+    # Get the true class labels within the current cluster
+    cluster_points = Y_train[y_means == cluster_label]
+    print("\nAll cluster points: ", cluster_points)
+    # Count the occurrences of each original class label
+    class_counts = Counter(cluster_points)
+    print(f"\nnumber of each class label for cluster label {cluster_label}: ", class_counts)
+    
+    # Find the majority class label within the current cluster
+    majority_class = class_counts.most_common(1)[0][0]
+    print("\nmajority: ", majority_class)
+
+    cluster_to_class[cluster_label] = majority_class
+
+# Print centroids and assigned labels for each cluster
+for i, centroid in enumerate(centroids):
+    majority_class = cluster_to_class[i]
+    print(f"\nCluster {i+1}:")
+    print("Centroid:", centroid)
+    print("Assigned Label:", majority_class)
+    print()
+
+# Initialize variables to count correct predictions and total predictions
+correct_predictions = 0
+total_predictions = len(X_test)
+X_test.reset_index(drop=True, inplace=True)
+# Iterate through each data point
+for i, x in X_test.iterrows():
+    # Calculate the Euclidean distance from the data point to each centroid
+    distances_A = np.linalg.norm(x - centroids[0])
+    distances_B = np.linalg.norm(x - centroids[1])
+    distances_C = np.linalg.norm(x - centroids[2])
+    
+    # Find the nearest centroid
+    nearest_centroid = np.argmin([distances_A, distances_B, distances_C])
+    
+    # Assign label based on the nearest centroid
+    if nearest_centroid == 0:
+        predicted_label = 1
+    elif nearest_centroid == 1:
+        predicted_label = 2
+    else:
+        predicted_label = 3
+    
+    # Compare predicted label with true label
+    true_label = Y_test[i]
+    if predicted_label == true_label:
+        correct_predictions += 1
+
+# Calculate overall accuracy
+accuracy = correct_predictions / total_predictions
+
+print("Overall Accuracy:", accuracy)
